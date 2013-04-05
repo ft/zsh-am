@@ -7,9 +7,9 @@
   save the mail message that contain commits you want to import to an `mbox'
   folder - say "feature-x.mbox" - and run "git am" on that like so:
 
-#+begin_src shell-script
+#+begin_example
 % git am feature-x.mbox
-#+end_src
+#+end_example
 
   With zsh's development style, that presents two issues:
 
@@ -57,9 +57,9 @@
    on "feature-x". I usually prefix my branches with my initials, so I'd do
    this:
 
-#+begin_src shell-script
+#+begin_example
 % git checkout -b ft/feature-x
-#+end_src
+#+end_example
 
    Now I'd work, commit, work, commit, rework... whatever I need to do and git
    allows me to do. In the end, there will be one or more commits, that
@@ -95,9 +95,9 @@ mailing list discussions, if they are relevant.
     Say we know, we have exactly three commits on our development branch. In
     that case we might call the program like this:
 
-#+begin_src shell-script
+#+begin_example
 % git format-patch -3
-#+end_src
+#+end_example
 
     "-3" tells it to create mails for the last three commits.
 
@@ -105,9 +105,9 @@ mailing list discussions, if they are relevant.
     format-patch to start at the point where you branched off (that would usually
     be the "master" branch) and tell it to stop whereever you are right now:
 
-#+begin_src shell-script
+#+begin_example
 % git format-patch master..
-#+end_src
+#+end_example
 
     That's all. The result will be a number of "*.patch" files, that you can
     send off to whereever they need to be send to.
@@ -144,9 +144,9 @@ mailing list discussions, if they are relevant.
     The actual call to send off the generated mails, looks like this (I told
     you it would have been a short section without that other feature):
 
-#+begin_src shell-script
+#+begin_example
 % git send-email --to='zsh-workers@zsh.org' --suppress-cc=all *.patch
-#+end_src
+#+end_example
 
     You can configure "send-email" so you have to supply less options, put the
     command line is still pretty short and zsh's git completion will help you
@@ -170,26 +170,26 @@ mailing list discussions, if they are relevant.
    in another integration branch and merge that into "master" later, but lets
    not over-do things):
 
-#+begin_src shell-script
+#+begin_example
 % git checkout master
-#+end_src
+#+end_example
 
    There are two steps that need to be taken (let's again assume
    "feature-x.mbox" as our newly created mbox file). First, amend the Subject:
    lines of the mails to reflect the X-Seq: number:
 
-#+begin_src shell-script
+#+begin_example
 % zsh-am-xseq2subject feature-x.mbox
-#+end_src
+#+end_example
 
    This step needs to be taken exactly once.
 
    And finally, import the changes and amend ChangeLog along the way
    appropriately:
 
-#+begin_src shell-script
+#+begin_example
 % zsh-am-and-changelog feature.mbox
-#+end_src
+#+end_example
 
    And that is it. Unless you get merge conflicts, in which case you need to do
    some manual labour after all.
@@ -197,9 +197,9 @@ mailing list discussions, if they are relevant.
    Obviously, having to enter more than one command is unacceptable, so here's
    a short-hand:
 
-#+begin_src shell-script
+#+begin_example
 % zsh-am feature-x.mbox
-#+end_src
+#+end_example
 
    You can pass as many mbox files as you like to the short-hand command.
 
@@ -220,9 +220,9 @@ mailing list discussions, if they are relevant.
 
    To remove the development branch just do this:
 
-#+begin_src shell-script
+#+begin_example
 % git branch -D ft/feature-x
-#+end_src
+#+end_example
 
 * Features
 
@@ -244,30 +244,30 @@ mailing list discussions, if they are relevant.
 
   The installation works like this:
 
-#+begin_src shell-script
+#+begin_example
 # make install
-#+end_src
+#+end_example
 
   The default installation prefix is "/usr/local", so the scripts will end up
   in "/usr/local/bin". If you'd prefer them to live in "~/bin", do this:
 
-#+begin_src shell-script
+#+begin_example
 % make install PREFIX="$HOME/bin"
-#+end_src
+#+end_example
 
   Similarly, the package may be uninstalled using:
 
-#+begin_src shell-script
+#+begin_example
 # make uninstall
-#+end_src
+#+end_example
 
   After installing, you have to move to your zsh git clone and call zsh-am with
   its "-init" option:
 
-#+begin_src shell-script
+#+begin_example
 % cd ~/src/zsh
 % zsh-am -init
-#+end_src
+#+end_example
 
 * One full example, finally.
 
