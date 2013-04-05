@@ -7,9 +7,9 @@
   save the mail message that contain commits you want to import to an `mbox'
   folder - say "feature-x.mbox" - and run "git am" on that like so:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % git am feature-x.mbox
-#+end_example
+#+END_EXAMPLE
 
   With zsh's development style, that presents two issues:
 
@@ -57,9 +57,9 @@
    on "feature-x". I usually prefix my branches with my initials, so I'd do
    this:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % git checkout -b ft/feature-x
-#+end_example
+#+END_EXAMPLE
 
    Now I'd work, commit, work, commit, rework... whatever I need to do and git
    allows me to do. In the end, there will be one or more commits, that
@@ -77,7 +77,7 @@
     Just as a reminder, commit messages with git - by convention - look like
     this:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 The first line should be short and to the point about the change in the commit
 
 The second line is to be left _EMPTY_!
@@ -86,7 +86,7 @@ The rest may go into as much detail about the changes as the author sees fit.
 Information that could be included is: What changed? Why change it in the first
 place? Why change it in this way and not in another fashion? Maybe parts of
 mailing list discussions, if they are relevant.
-#+end_example
+#+END_EXAMPLE
 
 *** "git format-patch"
 
@@ -95,9 +95,9 @@ mailing list discussions, if they are relevant.
     Say we know, we have exactly three commits on our development branch. In
     that case we might call the program like this:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % git format-patch -3
-#+end_example
+#+END_EXAMPLE
 
     "-3" tells it to create mails for the last three commits.
 
@@ -105,9 +105,9 @@ mailing list discussions, if they are relevant.
     format-patch to start at the point where you branched off (that would usually
     be the "master" branch) and tell it to stop whereever you are right now:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % git format-patch master..
-#+end_example
+#+END_EXAMPLE
 
     That's all. The result will be a number of "*.patch" files, that you can
     send off to whereever they need to be send to.
@@ -125,11 +125,11 @@ mailing list discussions, if they are relevant.
     followed by a few lines of diff-stat information before the actual diff is
     inserted. This is somewhere in the mail's body in looks somthing like this:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 ---
  Src/Zle/zle_main.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
-#+end_example
+#+END_EXAMPLE
 
     Now, since those "*.patch" files are just plain-text email messages, you
     might be tempted to edit them using your favourite editor. And you can.
@@ -144,9 +144,9 @@ mailing list discussions, if they are relevant.
     The actual call to send off the generated mails, looks like this (I told
     you it would have been a short section without that other feature):
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % git send-email --to='zsh-workers@zsh.org' --suppress-cc=all *.patch
-#+end_example
+#+END_EXAMPLE
 
     You can configure "send-email" so you have to supply less options, put the
     command line is still pretty short and zsh's git completion will help you
@@ -170,26 +170,26 @@ mailing list discussions, if they are relevant.
    in another integration branch and merge that into "master" later, but lets
    not over-do things):
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % git checkout master
-#+end_example
+#+END_EXAMPLE
 
    There are two steps that need to be taken (let's again assume
    "feature-x.mbox" as our newly created mbox file). First, amend the Subject:
    lines of the mails to reflect the X-Seq: number:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % zsh-am-xseq2subject feature-x.mbox
-#+end_example
+#+END_EXAMPLE
 
    This step needs to be taken exactly once.
 
    And finally, import the changes and amend ChangeLog along the way
    appropriately:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % zsh-am-and-changelog feature.mbox
-#+end_example
+#+END_EXAMPLE
 
    And that is it. Unless you get merge conflicts, in which case you need to do
    some manual labour after all.
@@ -197,9 +197,9 @@ mailing list discussions, if they are relevant.
    Obviously, having to enter more than one command is unacceptable, so here's
    a short-hand:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % zsh-am feature-x.mbox
-#+end_example
+#+END_EXAMPLE
 
    You can pass as many mbox files as you like to the short-hand command.
 
@@ -220,9 +220,9 @@ mailing list discussions, if they are relevant.
 
    To remove the development branch just do this:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % git branch -D ft/feature-x
-#+end_example
+#+END_EXAMPLE
 
 * Features
 
@@ -244,34 +244,34 @@ mailing list discussions, if they are relevant.
 
   The installation works like this:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 # make install
-#+end_example
+#+END_EXAMPLE
 
   The default installation prefix is "/usr/local", so the scripts will end up
   in "/usr/local/bin". If you'd prefer them to live in "~/bin", do this:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % make install PREFIX="$HOME/bin"
-#+end_example
+#+END_EXAMPLE
 
   Similarly, the package may be uninstalled using:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 # make uninstall
-#+end_example
+#+END_EXAMPLE
 
   After installing, you have to move to your zsh git clone and call zsh-am with
   its "-init" option:
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % cd ~/src/zsh
 % zsh-am -init
-#+end_example
+#+END_EXAMPLE
 
 * One full example, finally.
 
-#+begin_example
+#+BEGIN_EXAMPLE
 % cd ~/src/zsh
 % git checkout master
 % git checkout -b ft/zle-init-hooks
@@ -289,4 +289,4 @@ mailing list discussions, if they are relevant.
 % git push
 % rm ~/zle-init-hooks.mbox
 % git branch -D ft/zle-init-hooks
-#+end_example
+#+END_EXAMPLE
