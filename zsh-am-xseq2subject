@@ -27,6 +27,11 @@ MESSAGE: for my $msg ($folder->messages) {
     my $head = $msg->head;
     my $subject = $head->get('Subject');
     next MESSAGE unless (defined $subject);
+    my $done = $head->get('X-ZSH-AM');
+    if (defined $done && $done eq 'done') {
+        print "Message `$subject' already amended, skipping.\n";
+        next MESSAGE;
+    }
     my $xseq = $head->get('X-Seq');
     next MESSAGE unless (defined $xseq);
     my $list = $head->get('List-Id');
@@ -47,6 +52,7 @@ MESSAGE: for my $msg ($folder->messages) {
     }
     $head->delete('Subject');
     $head->add("Subject: $s");
+    $head->add("X-ZSH-AM: done");
 }
 
 $mgr->closeAllFolders;
