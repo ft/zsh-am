@@ -252,7 +252,7 @@ mailing list discussions, if they are relevant.
   in "/usr/local/bin". If you'd prefer them to live in "~/bin", do this:
 
 #+BEGIN_EXAMPLE
-% make install PREFIX="$HOME/bin"
+% make install PREFIX="$HOME"
 #+END_EXAMPLE
 
   Similarly, the package may be uninstalled using:
