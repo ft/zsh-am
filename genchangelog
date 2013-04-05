@@ -97,7 +97,7 @@ my %config = (
 
 my $today = strftime "%Y-%m-%d", localtime;
 
-my $VERSION = "2013-04-05.4";
+my $VERSION = "2013-04-05.5";
 
 # __call_command(): Calls a command and returns the data from stdout as a
 #                   reference to a list of strings (newlines removed) if
@@ -314,6 +314,7 @@ sub print_entry {
 
     if ($config{'use-x-seq'} && $text[0] =~ m@^(unposted|users/\d+|\d+):$@) {
         $xseq = $1;
+        shift @text;
     }
 
     my $len = $config{'tab-width'};
