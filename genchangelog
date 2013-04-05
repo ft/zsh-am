@@ -1,0 +1,527 @@
+#!/usr/bin/perl
+
+# Copyright (c) 2012-2013, Frank Terbeck <ft@bewatermyfriend.org>
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHAN-
+# TABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+# SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHAT-
+# SOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+# OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+# CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#
+# Generate classic changelog files from git history.
+#
+sub usage {
+    print <<__EOF__;
+ Usage:
+
+    genchangelog [OPTION(s)...] [new-version]
+
+ Options:
+
+  -f <FILE>           Use `FILE' instead of "ChangeLog".
+  -o <old-version>    Record all commits after `old-version'.
+  -n <new-version>    Record up to (and including) `new-version'.
+  -i                  If specified and no `-o' was used, do an "initial
+                      import", meaning to import the whole history up to
+                      the value of the `-n' option.
+  -H                  Do _not_ insert hash-sums into ChangeLog entries.
+  -P                  Consider the top-most ChangeLog entry when creating
+                      multiple entries per user.
+  -T                  Use _today_ instead of the commit-date.
+  -X                  Assume zsh-development style X-Seq prefixes in commit
+                      titles; pull such prefixes to the front of ChangeLog
+                      entries.
+
+ A single non-option argument is used as if it were the argument to the `-n'
+ option.
+
+__EOF__
+}
+# If `old-version' is omitted, the script attempts to find a hash-sum from the
+# last changelog entry (if a changelog exists already) and if that is non-
+# ambiguous, use it instead.
+#
+# If `new-version' is omitted, `HEAD' is used.
+#
+# The script reads $GIT_DIR/genchangelog.cfg for configuration purposes, if
+# it exists.
+#
+# The script produces changelog entries such as this:
+#
+#     2012-01-23  Joe D. Veloper  <jdv@example.tld>
+#
+#     \t* cafebeef: list/of/changed/files.c: Descriptive message.
+#
+#     \t* dead1234: more/changed/files.c: Another message.
+#
+#     2012-01-22  Joe D. Veloper  <jdv@example.tld>
+#
+#     ...
+#
+# The format is pretty much emacs' `add-change-log-entry' produces, except for
+# the abbreviated sha-sum, which every entry from this script is prefixed with.
+#
+# The configuration file may contain simple key=value pairs such as this:
+#
+#     line-length=79
+#     hash-length=12
+#
+# Along the way, this script uses $CHANGELOG.gen as a temporary file.
+
+use strict;
+use warnings;
+#use diagnostics -verbose;
+
+use English qw{ -no_match_vars };
+
+use Getopt::Std;
+use POSIX qw{strftime};
+
+# Default configuration.
+my %config = (
+    'change-log' => "ChangeLog",
+    'disable-hash' => 0,
+    'hash-length' => 8,
+    'line-length' => 74,
+    'local-time' => 0,
+    'pre-load' => 0,
+    'tab-width' => 8,
+    'use-x-seq' => 0
+);
+
+my $today = strftime "%Y-%m-%d", localtime;
+
+my $VERSION = "2013-04-05.4";
+
+# __call_command(): Calls a command and returns the data from stdout as a
+#                   reference to a list of strings (newlines removed) if
+#                   the program returned success; undef otherwise.
+sub __call_command {
+    my (@cmd) = @ARG;
+    my ($pid, $kid, $kid_ret, @rv);
+
+    open $kid, q{-|}, @cmd or die "Could not fork(): $ERRNO\n";
+    while (my $line = <$kid>) {
+        chomp $line;
+        push @rv, $line
+    }
+    close $kid;
+    $kid_ret = $CHILD_ERROR >> 8;
+    if ($kid_ret != 0) {
+        # Non-successful return value. Print out, what we've gathered
+        # and tell the caller by returning an undefined value.
+        if ($#rv >= 0) {
+            foreach my $line (@rv) {
+                print "$line\n";
+            }
+        }
+        return;
+    }
+    return \@rv;
+}
+
+# __git_stdout(): Takes a list of strings, calls the git command, and returns
+#                 all of stdout as a string, unless the command returns
+#                 non-zero, in which case the function returns an undef.
+sub __git_stdout {
+    my ($rv);
+
+    unshift @ARG, q{git};
+    $rv = __call_command(@ARG);
+    return $rv if (!defined $rv);
+    return join "\n", @{ $rv };
+}
+
+# __git_stdout_lines(): Like `__git_stdout', but returns a reference to a list
+#                       of output lines.
+sub __git_stdout_lines {
+    my ($rv);
+
+    unshift @ARG, q{git};
+    return __call_command(@ARG);
+}
+
+# Simple configuration file reader. "key = value" pairs. `key' may be
+# any key from `%config'. Empty lines are ignored. Lines of which the
+# first non-whitespace character is a `#' are considered comments.
+# Invalid lines are ignored. Valid lines with unknown keys are ignored.
+# Whitespace around the equal mark is ignored. If the first character
+# of a value is a `#' it is removed. That way, values with leading
+# whitespace is possible.
+sub read_config {
+    my ($file) = @ARG;
+    my ($fh);
+
+    return if (!defined $file);
+    open $fh, q{<}, $file or die "Could not open $file: $ERRNO\n";
+    LINE: while (my $line = <$fh>) {
+        chomp $line;
+        next LINE if ($line =~ m/^\s*$/);
+        next LINE if ($line =~ m/^\s*#/);
+        if ($line !~ m/^\s*([\w-]+)\s*=\s(.*)$/) {
+            warn "Invalid line ($line): Skipping.\n";
+            next LINE;
+        }
+        my $key = $1;
+        my $val = $2;
+        if (!defined $config{$key}) {
+            warn "Unknown setting ($key): Skipping.\n";
+            next LINE;
+        }
+        $val =~ s,^#,,;
+        $config{$key} = $val;
+    }
+    close $fh;
+}
+
+sub config_file {
+    # This will take care of handling `$GIT_DIR' already.
+    my $dir = __git_stdout('rev-parse', '--git-dir');
+    if (defined $dir) {
+        my $file = "$dir/genchangelog.cfg";
+        return $file if (-e $file);
+    }
+    return;
+}
+
+sub handle_options {
+    my ($opts) = @ARG;
+    my $rc = getopts("if:Hn:o:PTX", $opts);
+    if (!$rc) {
+        usage();
+        exit 1;
+    }
+    if ($#ARGV == 0) {
+        $opts->{n} = $ARGV[0];
+    } elsif ($#ARGV > 0) {
+        usage();
+        exit 1;
+    }
+}
+
+sub get_old_revision_from {
+    my ($file) = @ARG;
+    my ($fh, $sha);
+
+    if (! -e $file) {
+        warn "Couldn't find existing change log: $file\n";
+        return;
+    }
+    open $fh, q{<}, $file or die "Could not open $file: $ERRNO\n";
+    LINE: while (my $line = <$fh>) {
+        next LINE unless ($line =~ m/^\t\* ([a-f0-9]+):/);
+        $sha = $1;
+        last LINE;
+    }
+    close $fh;
+    return if (!defined $sha);
+
+    # Make sure $sha is a valid and non-ambiguous hash sum.
+    my $rc = __git_stdout('log', '-1', '--format=tformat:%s', "$sha^{commit}");
+    if (!defined $rc) {
+        warn "Hash-sum $sha is invalid or non-ambiguous.\n";
+        return;
+    }
+
+    # All good, I hope. ;)
+    return $sha;
+}
+
+sub move_old {
+    my ($file) = @ARG;
+
+    return 0 if (!-e $file);
+    my $old = "$file.gen";
+    if (-e $old) {
+        unlink $old or die "Could not unlink $old\n";
+    }
+    rename $file, $old or die "Could not rename $file to $old\n";
+    return 1;
+}
+
+sub same_author_and_date {
+    my ($new, $old) = @ARG;
+
+    foreach my $item (qw{ author email date }) {
+        return 0 if ($new->{$item} ne $old->{$item});
+    }
+    return 1;
+}
+
+sub print_entry_head {
+    my ($fh, $date, $author, $email) = @ARG;
+    print {$fh} "$date  $author  <$email>\n\n";
+}
+
+# Print stuff and try to keep line-length <= `maxlen'.
+sub print_as_lines {
+    my ($fh, $initlen, $maxlen, $text, $joinstr, $endstr) = @ARG;
+    # The API for this one is crap... But then, meh.
+    #
+    # Anyway, here's how this works:
+    #
+    #   - Print to `fh'.
+    #   - Assume, the first line is already `initlen' characters long.
+    #   - Take words from `text', which is an array-ref.
+    #   - Join said words by `joinstr' and a single space.
+    #   - Put `endstr' and a single space after the last word.
+    #   - When starting a new line, prefix it by an ASCII horizontal tab.
+    #   - Return the length of the last incomplete line for further calls.
+    #
+    # I'm sure a Perl guru can do this more elegantly...
+
+    my $len = $initlen;
+
+    if ($#{ $text } < 0) {
+        return $len;
+    } elsif ($#{ $text } == 0) {
+        $text->[0] .= $endstr;
+    } else {
+        @{ $text } =
+            ( map({ $_ .= $joinstr }
+                  @{ $text }[0 .. $#{ $text } - 1]),
+              $text->[-1] .= $endstr );
+    }
+
+    foreach my $word (@{ $text }) {
+        my $newlen = $len + (length $word) + 1;
+        if ($newlen <= $maxlen) {
+            print {$fh} " $word";
+        } else {
+            # The next word doesn't fix into the current line,
+            # so start a new one, indent it and insert the word.
+            $newlen = (length $word) + $config{'tab-width'};
+            print {$fh} "\n\t$word";
+        }
+        $len = $newlen;
+    }
+
+    return $len;
+}
+
+sub print_entry {
+    my ($fh, $hash, $files, $subject) = @ARG;
+    my ($start, $xseq);
+
+    my $h = substr $hash, 0, $config{'hash-length'};
+    my @text = split /\s+/, $subject;
+
+    if ($config{'use-x-seq'} && $text[0] =~ m@^(unposted|users/\d+|\d+):$@) {
+        $xseq = $1;
+    }
+
+    my $len = $config{'tab-width'};
+    if ($config{'disable-hash'}) {
+        $start = (defined $xseq && $xseq ne q{}) ? "* $xseq:" : "*";
+    } else {
+        $start = (defined $xseq && $xseq ne q{}) ? "* $xseq, $h:" : "* $h:";
+    }
+    $len += length $start;
+    print {$fh} "\t$start";
+
+    $len = print_as_lines(
+        $fh, $len, $config{'line-length'}, $files, q{,}, q{:});
+    print_as_lines($fh, $len, $config{'line-length'}, \@text, q{}, q{});
+
+    print {$fh} "\n\n";
+}
+
+sub preload_entry {
+    my ($lines) = @_;
+    my $line = $lines->[0];
+    my ($date, $name, $email);
+
+    if (($date, $name, $email) = $line =~ m/^([0-9][^\s]+)\s+([^<]+)<(.*)>/) {
+        $name =~ s,\s+$,,;
+        return ( author => $name,
+                 email => $email,
+                 date => $date );
+    } else {
+        die "Loading old Changelog-Entry failed!\n";
+    }
+}
+
+sub insert_new {
+    my ($file, $new, $old, $first) = @ARG;
+    my ($fh, %last, $used_first, $i);
+
+    # If `$old' is not defined, that means the `-i' option was used.
+    my $sums = __git_stdout_lines('log',
+                                  '--format=tformat:%H',
+                                  (defined $old ? "$old..$new"
+                                                : "$new"));
+    open $fh, q{>}, $file or die "Could not open $file: $ERRNO\n";
+    if (defined $first) {
+        %last = preload_entry($first);
+    } else {
+        %last = ( author => "",
+                  email => "",
+                  date => "" );
+    }
+    $used_first = 0;
+    $i = 0;
+    foreach my $hash (@{ $sums }) {
+        $i++;
+        my ($d, %hash_data, @files);
+        $d = __git_stdout_lines('log',
+                                '-1',
+                                '--date=short',
+                                '--format=tformat:%an%n%ae%n%ad%n%s',
+                                "$hash");
+        if (!defined $d) {
+            die "Could not get meta data for commit: $hash\n";
+        }
+        $hash_data{author} = $d->[0];
+        $hash_data{email} = $d->[1];
+        $hash_data{date} = $config{'local-time'} ? $today : $d->[2];
+        $hash_data{subject} = $d->[3];
+
+        $d = __git_stdout_lines('log',
+                                '-1',
+                                '--name-only',
+                                '--format=format:ignore',
+                                "$hash");
+        if (!defined $d) {
+            die "Could not get changed files for commit: $hash\n";
+        }
+        # The `shift' shaves off the first line containing "ignore" from
+        # the used format.
+        shift @{ $d };
+        @files = sort @{ $d };
+
+        # `@files' contains a list of changed files in `$hash' and
+        # `%hash_data' contains the accompanying meta data. Now
+        # create the wanted output.
+        if (!same_author_and_date(\%hash_data, \%last)) {
+            print_entry_head($fh,
+                             $hash_data{date},
+                             $hash_data{author},
+                             $hash_data{email});
+        } elsif (defined $first && $i == 1) {
+            $used_first = 1;
+            foreach my $l (@{ $first }) {
+                print {$fh} $l, "\n";
+            }
+        }
+        foreach my $item (qw{ author email date }) {
+            $last{$item} = $hash_data{$item};
+        }
+
+        print_entry($fh, $hash, \@files, $hash_data{subject});
+    }
+    close $fh;
+    return $used_first;
+}
+
+sub append_old {
+    my ($file, $used_first) = @ARG;
+    my ($i);
+
+    $i = 0;
+    my $genfile = "$file.gen";
+    return if (!-e $genfile);
+    my ($fh, $gfh);
+    open $fh, q{>>}, $file or die "Could not open $file: $ERRNO\n";
+    open $gfh, q{<}, $genfile or die "Could not open $genfile: $ERRNO\n";
+    LINE: while (my $line = <$gfh>) {
+        $i++;
+        if ($used_first) {
+            next LINE if ($i == 1);
+            next LINE if ($i != 1 && $line !~ m/^[0-9]/);
+            $used_first = 0;
+        }
+        print {$fh} $line;
+    }
+    close $fh;
+    close $gfh;
+}
+
+sub cleanup {
+    my ($file) = @ARG;
+
+    if (-e "$file.gen") {
+        unlink "$file.gen" or die "Could not unlink $file.gen\n";
+    }
+}
+
+sub get_first_entry {
+    my ($src) = @_;
+    my (@lines, $i);
+
+    $i = 0;
+    open my $fh, q{<}, $src
+        or die "Couldn't open old Changelog `$src': $ERRNO\n";
+    LINE: while (my $line = <$fh>) {
+        $i++;
+        chomp $line;
+        last LINE if ($i != 1 && $line =~ m/^[0-9]/);
+        push @lines, $line;
+    }
+    close $fh;
+    return \@lines;
+}
+
+### Main program below ###
+
+my ($new, $old, $changelog, $first_entry, $moved, $used_first, %opts);
+
+# Refuse to work in the git-directory itself, in bare repositories or in
+# non-git controlled directories.
+my $tmp = __git_stdout('rev-parse', '--is-inside-work-tree');
+if (!defined $tmp) {
+    die "\n  Not inside a git working tree. Giving up.\n\n";
+}
+
+# Config file beats the defaults from %config, command line
+# beats config file.
+read_config(config_file());
+handle_options(\%opts);
+
+$changelog = $config{'change-log'};
+$changelog = $opts{f} if (defined $opts{f});
+
+$new = $opts{n};
+$new = q{HEAD} if (!defined $new);
+
+$config{'pre-load'} = 1 if (defined $opts{P});
+$config{'local-time'} = 1 if (defined $opts{T});
+$config{'disable-hash'} = 1 if (defined $opts{H});
+$config{'use-x-seq'} = 1 if (defined $opts{X});
+
+$old = $opts{o};
+if (!defined $old && !defined $opts{i}) {
+   $old = get_old_revision_from($changelog);
+   if (!defined $old) {
+       die "Could not get old revision from `$changelog'.\n";
+   }
+}
+
+if (defined $old) {
+    print "Adding from $old to $new to $changelog...\n";
+} else {
+    print "Adding from the start to $new to $changelog...\n";
+}
+
+$moved = move_old($changelog);
+$first_entry = get_first_entry("$changelog.gen") if ($config{'pre-load'});
+$used_first = insert_new($changelog, $new, $old, $first_entry);
+append_old($changelog, $used_first);
+cleanup($changelog);
+
+if (!$moved) {
+    # First generation keeps an empty line at the end of the newly
+    # generated chang-log. Let's fix that up for cosmetic reasons.
+    my ($pos, $fh);
+    open $fh, q{+<}, $changelog or die "Couldn't open $changelog: $ERRNO\n";
+    while (<$fh>) {
+        $pos = tell $fh unless eof $fh;
+    }
+    truncate $fh, $pos or die "Couldn't truncate $changelog: $ERRNO\n";
+    close $fh;
+}

@@ -1,0 +1,44 @@
+#!/bin/sh
+
+# Copyright (c) 2013, Frank Terbeck <ft@bewatermyfriend.org>
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHAN-
+# TABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+# SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHAT-
+# SOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+# OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+# CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+gitdir=$(git rev-parse --git-dir)
+if [ "$?" != 0 ]; then
+    echo "git rev-parse failed!"
+    exit 1
+fi
+pc="${gitdir}/zsh-am.post-command"
+
+if [ x"$1" = x-init ]; then
+    cat > "$pc" <<EOF
+#!/bin/sh
+
+msg=\$(git log --format='%B' -1 'HEAD')
+genchangelog -P -T -H -X -o 'HEAD^' -n 'HEAD'
+git add ChangeLog
+git commit --amend -m"\$msg"
+EOF
+    exit 0
+fi
+
+if [ ! -e "$pc" ]; then
+    echo 'zsh-am-and-changelog: `'"$pc"\'' missing!'
+    echo 'Forgot to run "zsh-am -init"?'
+    exit 1
+fi
+
+for mbox in "$@"; do
+    zsh-am-xseq2subject "$mbox" && zsh-am-and-changelog "$mbox"
+done

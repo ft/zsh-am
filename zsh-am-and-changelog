@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+
+# Copyright (c) 2013, Frank Terbeck <ft@bewatermyfriend.org>
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHAN-
+# TABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+# SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHAT-
+# SOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+# OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+# CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+use strict;
+use warnings;
+use English '-no_match_vars';
+
+use Mail::Box::Manager;
+
+my $gitdir = `git rev-parse --git-dir`;
+if ($CHILD_ERROR >> 8 != 0) {
+    die "git-rev-parse failed: Giving up.\n";
+}
+chomp $gitdir;
+my $config = "$gitdir/zsh-am.post-command";
+
+if (! -e $config) {
+    warn "zsh-am-and-changelog: `$config' missing!\n";
+    die "Forgot to run \"zsh-am -init\"?\n";
+}
+
+my $mgr = Mail::Box::Manager->new;
+my $folder = $mgr->open($ARGV[0],
+                        access => 'r');
+
+sub xdie {
+    $mgr->closeAllFolders(write => 'NEVER');
+    die @_;
+}
+
+foreach my $msg ($folder->messages) {
+    open my $gitam, q{|-}, q{git}, qw{am} or xdie "Couldn't fork git-am: $ERRNO\n";
+    $msg->write($gitam);
+    close $gitam;
+    if ($CHILD_ERROR >> 8 != 0) {
+        xdie "git-am failed: Giving up.\n";
+    }
+    system ( "/bin/sh", $config );
+    if ($CHILD_ERROR >> 8 != 0) {
+        xdie "Post command failed: Giving up.\n";
+    }
+}
+
+$mgr->closeAllFolders(write => 'NEVER');

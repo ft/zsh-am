@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+
+# Copyright (c) 2013, Frank Terbeck <ft@bewatermyfriend.org>
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHAN-
+# TABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+# SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHAT-
+# SOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+# OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+# CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+use strict;
+use warnings;
+
+use Mail::Box::Manager;
+
+my $mgr = Mail::Box::Manager->new;
+my $folder = $mgr->open($ARGV[0],
+                        access => 'rw');
+
+MESSAGE: for my $msg ($folder->messages) {
+    my $head = $msg->head;
+    my $subject = $head->get('Subject');
+    next MESSAGE unless (defined $subject);
+    my $xseq = $head->get('X-Seq');
+    next MESSAGE unless (defined $xseq);
+    my $list = $head->get('List-Id');
+
+    if (defined $list && $list =~ m/Zsh Users List/i) {
+        $xseq = "users/$xseq";
+    }
+    # Message seems to be for us to change...
+    my $s;
+    if ($subject =~ m/^(PATCH: )(.*)/ ||
+        $subject =~ m/^(\[PATCH[^]]*\] )(.*)/)
+    {
+        # ...has a patch-prefix:
+        $s = $1 . $xseq .  ": " . $2 . "\n";
+    } else {
+        # ...doesn't:
+        $s = $xseq . ": " . $subject . "\n";
+    }
+    $head->delete('Subject');
+    $head->add("Subject: $s");
+}
+
+$mgr->closeAllFolders;
