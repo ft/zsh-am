@@ -14,15 +14,34 @@
 # OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-gitdir=$(git rev-parse --git-dir)
-if [ "$?" != 0 ]; then
-    echo "git rev-parse failed!"
-    exit 1
-fi
-pc="${gitdir}/zsh-am.post-command"
+pc=''
 
-if [ x"$1" = x-init ]; then
-    cat > "$pc" <<EOF
+init_pc () {
+    gitdir=$(git rev-parse --git-dir)
+    if [ "$?" != 0 ]; then
+        echo "git rev-parse failed!"
+        exit 1
+    fi
+    pc="${gitdir}/zsh-am.post-command"
+}
+
+is_opt () {
+    case "$1" in
+        -) return 1;;
+        -*) return 0;;
+        *) return 1;;
+    esac
+}
+
+while is_opt "$1"; do
+    case $1 in
+        --)
+            shift
+            break
+            ;;
+        -init)
+            init_pc
+            cat > "$pc" <<EOF
 #!/bin/sh
 
 msg=\$(git log --format='%B' -1 'HEAD')
@@ -30,9 +49,13 @@ genchangelog -P -T -H -X -o 'HEAD^' -n 'HEAD'
 git add ChangeLog
 git commit --amend -m"\$msg"
 EOF
-    exit 0
-fi
+            exit 0
+            ;;
+        -*) printf 'Unknown option: `%s'\''\n' "$1";;
+    esac
+done
 
+init_pc
 if [ ! -e "$pc" ]; then
     echo 'zsh-am-and-changelog: `'"$pc"\'' missing!'
     echo 'Forgot to run "zsh-am -init"?'
