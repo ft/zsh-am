@@ -96,7 +96,10 @@ if should_try_stdin; then
     }
 else
     for mbox in "$@"; do
-        process_mbox "$mbox"
+        process_mbox "$mbox" || {
+            echo "zsh-am: Processing mailbox failed: \"$mbox\"; Exiting..."
+            exit 1
+        }
     done
 fi
 exit 0
