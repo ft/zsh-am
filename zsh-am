@@ -25,6 +25,27 @@ init_pc () {
     pc="${gitdir}/zsh-am.post-command"
 }
 
+should_try_stdin () {
+    # If there is no non-option argument or the only non-option argument is a
+    # single dash ("-"), read from stdin and use that input as the mbox to work
+    # on.
+    [ "$#" -eq 0 ] && return 0
+    [ "$#" -eq 1 ] && [ "x$1" = "x-" ] && return 0
+    return 1
+}
+
+process_mbox () {
+    zsh-am-xseq2subject "$1" || {
+        echo "zsh-am: xseq2subject failed! (mbox: \"$1\")"
+        return 1
+    }
+    zsh-am-and-changelog "$1" || {
+        echo "zsh-am: am-and-changelog failed! (mbox: \"$1\")"
+        return 1
+    }
+    return 0
+}
+
 is_opt () {
     case "$1" in
         -) return 1;;
@@ -62,6 +83,20 @@ if [ ! -e "$pc" ]; then
     exit 1
 fi
 
-for mbox in "$@"; do
-    zsh-am-xseq2subject "$mbox" && zsh-am-and-changelog "$mbox"
-done
+if should_try_stdin; then
+    mbox=$(mktemp "${TMPDIR:-/tmp}"/zsh-am.mbox.XXXXXXXXXXXX) || {
+        echo "zsh-am: Could not create temporary file. Giving up."
+        exit 1
+    }
+    cat > "$mbox"
+    process_mbox "$mbox"
+    rm "$mbox" || {
+        echo "zsh-am: Failed to remove \"$mbox\"!"
+        exit 1
+    }
+else
+    for mbox in "$@"; do
+        process_mbox "$mbox"
+    done
+fi
+exit 0
