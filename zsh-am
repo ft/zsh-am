@@ -65,9 +65,38 @@ while is_opt "$1"; do
             cat > "$pc" <<EOF
 #!/bin/sh
 
+# Save old commit message for later use.
 msg=\$(git log --format='%B' -1 'HEAD')
+
+# Add ChangeLog entry for the last commit. The options given largely enable
+# zsh specific operation of \`genchangelog':
+#
+#   -P: Take the topmost entry of the current ChangeLog into account: If
+#       there already is a change by the new author from the same date,
+#       then add a new bullet-point to that stanza. Only create a completely
+#       new entry otherwise. This keeps the ChangeLog neat, in case you call
+#       zsh-am on a mailbox with a lot of changes of a single author in
+#       direct succession (think: patch-series).
+#
+#   -T: Use the current date instead of the date from the commit-mail. This
+#       keeps the date-stamps in ChangeLog linear even when importing old
+#       commits that have been around on the mailing list for a long time.
+#
+#   -H: Do _NOT_ add hash-sums to ChangeLog entries: Since we'll be amending
+#       the last commit in the next step, the hash-sum will change. That
+#       means we would end up with invalid hash-sums in the ChangeLog file,
+#       which has no value at all.
+#
+#   -X: Assume that commit-message have an X-Seq: prefix and act accordingly.
+#       Since \`zsh-am' calls out to \`zsh-am-xseq2subject' before calling
+#       \`genchangelog', that should just work.
 genchangelog -P -T -H -X -o 'HEAD^' -n 'HEAD'
+
+# Add Changelog to the staged changes.
 git add ChangeLog
+
+# Finally amend the current commit with the newly added ChangeLog entry,
+# using the old commit message we saved to \$msg before.
 git commit --amend -m"\$msg"
 EOF
             exit 0
