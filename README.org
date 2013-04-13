@@ -225,6 +225,158 @@ mailing list discussions, if they are relevant.
 % git branch -D ft/feature-x
 #+END_EXAMPLE
 
+* Reviewing Branches
+
+  The workflow presented earlier uses explicitly created additional branches,
+  because the author believes it helps to separate different changes from each
+  other as well as from on-going development. This section might show reasons
+  why that could indeed be beneficial.
+
+  That being said, note that all of this is *entirely* *optional*.
+
+  If you're new to git, you might be surprised to hear that you already *have*
+  your own branch already anyway: The ~master~ branch.
+
+** A bird-eye view on a git repository
+
+   With centralised systems, the initial situation is simpler, simply because
+   the way the network is allowed to be look like is a lot more limited. With
+   centralised systems you have got *exactly* *one* remote system: The central
+   repository.
+
+*** Remote systems
+
+    With distributed systems like git, there could potentially be any number of
+    remote systems (in git-lingo, such a system is called a "remote"). And that
+    includes none at all. It could also mean 20 or 30 remotes. It doesn't
+    really matter.
+
+    When you clone a git repository, git automatically adds one remote for you.
+    It calls this default remote ~origin~, because it points to where you got
+    the code from in the first place. If you'd like to see a list of remotes,
+    that are registered with your repository you can call "git remote show":
+
+#+BEGIN_EXAMPLE
+% git remote show
+origin
+#+END_EXAMPLE
+
+    You can add other remotes if you want to. For example, I got mirror of
+    zsh's git repository set up on github, which I added like this:
+
+#+BEGIN_EXAMPLE
+% git remote add github git@github.com:ft/zsh.git
+#+END_EXAMPLE
+
+    In a centralised-like workflow (which is used by most projects I am aware
+    of), there is no need for that, though. The point is that you could. And in
+    more decoupled scenarios, it does make sense.
+
+    Note, that you can also remove any remote, including ~origin~. There is
+    nothing special about it. If you remove it, you can't get changes from the
+    remote repository anymore, though. So, don't do that. ;)
+
+*** Remote branches
+
+    Since there can be any number of remote systems, git has to have a way to
+    keep track of their changes: It keeps exact copies of the remote branches
+    in the local repository. You might know that calling "git branch" lists all
+    (local) branches in your repository. Its "-a" option will list *all*
+    branches, including global ones:
+
+#+BEGIN_EXAMPLE
+% git branch -a
+* master
+  remotes/github/master
+  remotes/origin/#CVSPS.NO.BRANCH
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/dot-zsh-3.1.5-pws-14
+  remotes/origin/dot-zsh-3.1.5-pws-17
+  remotes/origin/dot-zsh-3.1.5-pws-19
+  remotes/origin/master
+  remotes/origin/zsh
+  remotes/origin/zsh-3.1.5-pws-16-patches
+  remotes/origin/zsh-4.0-patches
+  remotes/origin/zsh-4.2-patches
+#+END_EXAMPLE
+
+    That's actually a lot and it might confuse you. So, to make it clear: Most
+    of these were created during the CVS history import. The one that is
+    interesting (since it's the representation of the remote's ~master~ branch)
+    is ~remotes/origin/master~. There is also ~remotes/origin/HEAD~ which
+    points to ~origin/master~: This means that the default branch of the remote
+    repository is ~master~.
+
+    Your local ~master~ is branched off of the remote branch ~origin/master~.
+    It is as if you had done this manually:
+
+#+BEGIN_EXAMPLE
+% git checkout -b master origin/master
+#+END_EXAMPLE
+
+    You didn't have to do that, because git did it for you when you cloned the
+    repository. What you have to realise is this: Your local ~master~ branch is
+    *yours*! The remote changes are kept in ~origin/master~.
+
+*** Connecting local and remote branches
+
+    How to get changes from a remote branch to a local one then? Or the other
+    way round? "Pull! Push!" might be your reaction. Kind of. Let's take a
+    closer look.
+
+**** Getting remote changes
+
+     The command used to get changes from a remote is actually "git fetch". It
+     gets changes from a remote and updates the branches in its ~remote/*/*~
+     namespace accordingly. It does *not* touch your local branches!
+
+     "git pull" performs a "git fetch", but is also does something else: It
+     merges, too. You can configure what is merged to where. Per default, stuff
+     from ~origin/master~ gets merged to ~master~.
+
+     If you do not have new changes in your ~master~ branch, the merge is
+     trivial since history is remains linear. If you do, the merge will
+     commence and also create a merge commit in the end: Your history is not
+     linear anymore.
+
+     If you want linear history, you can use "git pull --rebase". "rebase"
+     means: Reset ~master~ to ~origin/master~, to the trivial linear merge and
+     finally replay all local changes on top of that new master branch.
+
+     The thing with merging and rebasing is this: If you made changes to
+     ChangeLog, you'll get a guaranteed merge conflict. That is because of the
+     nature of ChangeLog files. Changes are always made at the top, and thus
+     will always trigger a conflict if something else changed this top as well
+     (as changes in the remote repository would).
+
+     This is why I prefer to code on separate branches and only use my local
+     ~master~ branch for integration: If something goes wrong, I can always
+     just reset my ~master~ branch, pull changes from the remote and re-apply
+     the changes from my saved mailbox using \`zsh-am'.
+
+     If there are merge conflicts (they won't be in ChangeLog, because
+     \`zsh-am' will always produce new entries on top of the current state), I
+     can always rebase my coding branch on top of ~master~ and resolve any
+     merge conflicts there. Then I resend a new patch series and \`zsh-am' that
+     on top of master as soon as the mails return to me.
+
+     I believe that workflow to be more robust with the special needs of zsh's
+     development style with X-Seq: numbers and especially ChangeLog entries.
+
+     You can do all of this with just your local ~master~ branch. But I think
+     it's substantially harder to get everything right in case of conflicts
+     doing that.
+
+**** Getting local changes into a remote
+
+     The answer is indeed "git push". There is one caveat, though: If the
+     remote has new changes, it won't let you push. You'd have to fetch and
+     merge or rebase (either explicitly or using "git pull" with or without
+     "--rebase") first and resolve any conflicts locally. This then involves
+     all subtleties that were mentioned in the previous section.
+
+     After that, you can push to the remote indeed.
+
 * Features
 
   - One command to do all the work at once.
