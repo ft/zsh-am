@@ -60,6 +60,18 @@ while is_opt "$1"; do
             shift
             break
             ;;
+        -cwd)
+            if [ $# -eq 1 ]; then
+                echo "zsh-am: -cwd needs a parameter!"
+                exit 1
+            fi
+            shift
+            cd "$1" || {
+                echo "zsh-am: Failed to change working directory!"
+                exit 1
+            }
+            shift
+            ;;
         -init)
             init_pc
             cat > "$pc" <<EOF
