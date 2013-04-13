@@ -232,6 +232,18 @@ mailing list discussions, if they are relevant.
   - Support for mails to zsh-users (they get a "users/" prefix)
   - Support for amending commits with ChangeLog entries
 
+* Requirements
+
+  The \`zsh-am' script requires a POSIX shell as /bin/sh. It also requires an
+  implementation of \`*mktemp(1)*' to be available for the "read mbox file from
+  stdin" feature to work.
+
+  The other scripts are written in Perl. Standard modules such as *POSIX* are
+  assumed to work. The mailbox handling is done by an extension module called
+  *Mail::Box* which is available from CPAN and is packaged for popular linux
+  distributions as well. For example on debian, the right package to install
+  would be \`*libmail-box-perl*'.
+
 * Installation
 
   The package consists of four scripts:
