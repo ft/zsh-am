@@ -19,6 +19,13 @@ use warnings;
 
 use Mail::Box::Manager;
 
+my $VERSION = "2013-04-13.1";
+
+if ($#ARGV == 0 && $ARGV[0] eq q{-v}) {
+    print "zsh-am-xseq2subject version $VERSION\n";
+    exit 0
+}
+
 my $mgr = Mail::Box::Manager->new;
 my $folder = $mgr->open($ARGV[0],
                         access => 'rw');

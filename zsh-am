@@ -14,6 +14,8 @@
 # OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+version='2013-04-13.1'
+
 pc=''
 
 init_pc () {
@@ -64,6 +66,7 @@ usage: zsh-am [OPTION(s)...] [--] [-|MAILBOX(ES)...]
     -cwd <directory>     Before processing mailboxes, move the the specified
                          directory.
     -h | -help           Display this help text.
+    -v | -version        Display version information.
 
 The optional double-dash marks the end of option processing. MAILBOX(ES) is one
 or more mailbox files (mbox format), that will be processed in succession.
@@ -94,6 +97,10 @@ while is_opt "$1"; do
             ;;
         -h|-help)
             zsh_am_usage
+            exit 0
+            ;;
+        -v|-version)
+            echo "zsh-am version $version"
             exit 0
             ;;
         -init)

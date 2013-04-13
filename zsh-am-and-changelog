@@ -20,6 +20,13 @@ use English '-no_match_vars';
 
 use Mail::Box::Manager;
 
+my $VERSION = "2013-04-13.1";
+
+if ($#ARGV == 0 && $ARGV[0] eq q{-v}) {
+    print "zsh-am-and-changelog version $VERSION\n";
+    exit 0
+}
+
 my $gitdir = `git rev-parse --git-dir`;
 if ($CHILD_ERROR >> 8 != 0) {
     die "git-rev-parse failed: Giving up.\n";

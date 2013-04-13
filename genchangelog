@@ -37,6 +37,7 @@ sub usage {
   -X                  Assume zsh-development style X-Seq prefixes in commit
                       titles; pull such prefixes to the front of ChangeLog
                       entries.
+  -v                  Print version information.
 
  A single non-option argument is used as if it were the argument to the `-n'
  option.
@@ -192,10 +193,14 @@ sub config_file {
 
 sub handle_options {
     my ($opts) = @ARG;
-    my $rc = getopts("if:Hn:o:PTX", $opts);
+    my $rc = getopts("if:Hn:o:PTvX", $opts);
     if (!$rc) {
         usage();
         exit 1;
+    }
+    if (defined $opts->{v}) {
+        print "genchangelog version $VERSION\n";
+        exit 0;
     }
     if ($#ARGV == 0) {
         $opts->{n} = $ARGV[0];
