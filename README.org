@@ -231,6 +231,7 @@ mailing list discussions, if they are relevant.
   - Support for X-Seq: numbers.
   - Support for mails to zsh-users (they get a "users/" prefix)
   - Support for amending commits with ChangeLog entries
+  - Support reading mbox files from stdin
 
 * Requirements
 
