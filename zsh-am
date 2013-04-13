@@ -54,6 +54,26 @@ is_opt () {
     esac
 }
 
+zsh_am_usage () {
+    cat <<__EOF__
+usage: zsh-am [OPTION(s)...] [--] [-|MAILBOX(ES)...]
+
+  Options:
+    -init                Initialise the zsh-am.post-command file in the git
+                         directory.
+    -cwd <directory>     Before processing mailboxes, move the the specified
+                         directory.
+    -h | -help           Display this help text.
+
+The optional double-dash marks the end of option processing. MAILBOX(ES) is one
+or more mailbox files (mbox format), that will be processed in succession.
+
+If no mailbox is defined or if exactly one mailbox named "-" is specified,
+zsh-am will read input from stdin. This input should be in the format of an
+mbox file.
+__EOF__
+}
+
 while is_opt "$1"; do
     case $1 in
         --)
@@ -71,6 +91,10 @@ while is_opt "$1"; do
                 exit 1
             }
             shift
+            ;;
+        -h|-help)
+            zsh_am_usage
+            return 0
             ;;
         -init)
             init_pc
