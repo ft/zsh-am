@@ -137,7 +137,10 @@ git commit --amend -m"\$msg"
 EOF
             exit 0
             ;;
-        -*) printf 'Unknown option: `%s'\''\n' "$1";;
+        -*) echo 'Unknown option: `'"$1"\'
+            echo
+            zsh_am_usage
+            exit 1
     esac
 done
 
