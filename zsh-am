@@ -158,7 +158,7 @@ if [ ! -e "$pc" ]; then
     exit 1
 fi
 
-if should_try_stdin; then
+if should_try_stdin "$@"; then
     mbox=$(mktemp "${TMPDIR:-/tmp}"/zsh-am.mbox.XXXXXXXXXXXX) || {
         echo "zsh-am: Could not create temporary file. Giving up."
         exit 1
