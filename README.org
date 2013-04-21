@@ -160,7 +160,7 @@ mailing list discussions, if they are relevant.
    what I tested this solution with; although the module I used supports a wide
    variety of formats).
 
-   If you MUA cannot do this: My condolences. ;)
+   If your MUA cannot do this: My condolences. ;)
 
 ** Importing the changes from the newly created mbox file
 
